@@ -7,12 +7,14 @@ import org.apache.http.impl.client.*;
 import org.apache.http.util.EntityUtils;
 import javax.swing.*;
 import java.awt.*;
+import java.awt.image.BufferedImage;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 
 public final class ApacheClient {
     static final String URL = System.getProperty("dictionary.url",
             "http://127.0.0.1:8080/lab_servlet/MyServlet");
-
     public static String translate(String word, String direction) throws Exception {
         var uri = new URIBuilder(URL).setCharset(StandardCharsets.UTF_8)
                 .addParameter("txt", word).addParameter("direction", direction)
@@ -51,8 +53,8 @@ public final class ApacheClient {
         JButton primary = (JButton) content.getClientProperty("translateButton");
         frame.getRootPane().setDefaultButton(primary);
         setPrimaryText(primary);
-        frame.setMinimumSize(new Dimension(520, 420));
-        frame.setSize(600, 460);
+        frame.setMinimumSize(new Dimension(620, 460));
+        frame.setSize(800, 600);
         frame.setLocationRelativeTo(null);
         frame.setVisible(true);
         ((JTextField) content.getClientProperty("wordField")).requestFocusInWindow();
@@ -149,42 +151,75 @@ public final class ApacheClient {
         });
         word.addActionListener(event -> translate.doClick());
 
-        JButton open = new JButton("Открыть презентацию");
-        JLabel fileName = new JLabel("presentation.pptx");
-        fileName.setFont(fileName.getFont().deriveFont(Font.BOLD, 16f));
-        JTextArea fileStatus = note("Презентация будет скачана с сервера и открыта в приложении для .pptx.", 4);
-        JPanel fileActions = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
-        fileActions.add(open);
-        JPanel fileDescription = new JPanel(new BorderLayout(0, 12));
-        fileDescription.add(fileName, BorderLayout.NORTH);
-        fileDescription.add(fileStatus, BorderLayout.CENTER);
-        fileDescription.add(fileActions, BorderLayout.SOUTH);
-        JPanel presentation = new JPanel(new BorderLayout());
-        presentation.setBorder(BorderFactory.createEmptyBorder(24, 20, 20, 20));
-        presentation.add(fileDescription, BorderLayout.NORTH);
-        open.addActionListener(event -> {
-            open.setEnabled(false);
-            fileStatus.setForeground(muted);
-            fileStatus.setText("Скачивание презентации…");
-            new SwingWorker<java.nio.file.Path, Void>() {
-                @Override protected java.nio.file.Path doInBackground() throws Exception {
-                    return PresentationClient.downloadAndOpen();
+        JButton loadSlides = new JButton("Загрузить презентацию");
+        JTextArea slideStatus = note("Слайды будут показаны прямо в этом окне.", 2);
+        JLabel slideImage = new JLabel();
+        slideImage.setHorizontalAlignment(SwingConstants.CENTER);
+        JScrollPane slideScroll = new JScrollPane(slideImage);
+        JButton previousSlide = new JButton("← Назад");
+        JButton nextSlide = new JButton("Вперёд →");
+        JLabel slideCounter = new JLabel("Слайд 0 из 0");
+        previousSlide.setEnabled(false);
+        nextSlide.setEnabled(false);
+        JPanel slideNavigation = new JPanel(new FlowLayout(FlowLayout.CENTER, 14, 5));
+        slideNavigation.add(previousSlide);
+        slideNavigation.add(slideCounter);
+        slideNavigation.add(nextSlide);
+        JPanel slideHeader = new JPanel(new BorderLayout(12, 0));
+        slideHeader.add(loadSlides, BorderLayout.WEST);
+        slideHeader.add(slideStatus, BorderLayout.CENTER);
+        JPanel presentation = new JPanel(new BorderLayout(0, 10));
+        presentation.setBorder(BorderFactory.createEmptyBorder(16, 16, 12, 16));
+        presentation.add(slideHeader, BorderLayout.NORTH);
+        presentation.add(slideScroll, BorderLayout.CENTER);
+        presentation.add(slideNavigation, BorderLayout.SOUTH);
+
+        List<BufferedImage> renderedSlides = new ArrayList<>();
+        int[] selectedSlide = {0};
+        Runnable showSelectedSlide = () -> {
+            if (renderedSlides.isEmpty()) return;
+            slideImage.setIcon(new ImageIcon(renderedSlides.get(selectedSlide[0])));
+            slideCounter.setText("Слайд " + (selectedSlide[0] + 1) + " из " + renderedSlides.size());
+            previousSlide.setEnabled(selectedSlide[0] > 0);
+            nextSlide.setEnabled(selectedSlide[0] < renderedSlides.size() - 1);
+        };
+        previousSlide.addActionListener(event -> {
+            if (selectedSlide[0] > 0) {
+                selectedSlide[0]--;
+                showSelectedSlide.run();
+            }
+        });
+        nextSlide.addActionListener(event -> {
+            if (selectedSlide[0] < renderedSlides.size() - 1) {
+                selectedSlide[0]++;
+                showSelectedSlide.run();
+            }
+        });
+        loadSlides.addActionListener(event -> {
+            loadSlides.setEnabled(false);
+            slideStatus.setForeground(muted);
+            slideStatus.setText("Загрузка и подготовка слайдов…");
+            new SwingWorker<List<BufferedImage>, Void>() {
+                @Override protected List<BufferedImage> doInBackground() throws Exception {
+                    return PresentationClient.downloadAndRender();
                 }
                 @Override protected void done() {
                     try {
-                        java.nio.file.Path file = get();
-                        fileStatus.setText("Презентация передана приложению для открытия.");
-                        fileStatus.setToolTipText("Сохранённый файл: " + file);
+                        renderedSlides.clear();
+                        renderedSlides.addAll(get());
+                        selectedSlide[0] = 0;
+                        showSelectedSlide.run();
+                        slideStatus.setText("Презентация загружена.");
                     } catch (Exception e) {
-                        fileStatus.setForeground(error);
-                        fileStatus.setText(errorMessage(e));
+                        slideStatus.setForeground(error);
+                        slideStatus.setText(errorMessage(e));
                     } finally {
-                        fileStatus.setCaretPosition(0);
-                        open.setEnabled(true);
+                        loadSlides.setEnabled(true);
                     }
                 }
             }.execute();
         });
+
         JTabbedPane tabs = new JTabbedPane();
         tabs.addTab("Словарь", dictionary);
         tabs.addTab("Презентация", presentation);
@@ -196,7 +231,7 @@ public final class ApacheClient {
         tabs.addChangeListener(event -> {
             JRootPane root = SwingUtilities.getRootPane(tabs);
             if (root != null) {
-                JButton primary = tabs.getSelectedIndex() == 0 ? translate : open;
+                JButton primary = tabs.getSelectedIndex() == 0 ? translate : loadSlides;
                 root.setDefaultButton(primary);
                 setPrimaryText(primary);
             }

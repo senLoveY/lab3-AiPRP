@@ -1,5 +1,9 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0"><modelVersion>4.0.0</modelVersion>
   <parent><groupId>by.bsuir</groupId><artifactId>lab3</artifactId><version>1.0-SNAPSHOT</version></parent>
   <artifactId>dictionary-client</artifactId>
-  <dependencies><dependency><groupId>org.apache.httpcomponents</groupId><artifactId>httpclient</artifactId><version>4.5.14</version></dependency></dependencies>
+  <dependencies>
+    <dependency><groupId>org.apache.httpcomponents</groupId><artifactId>httpclient</artifactId><version>4.5.14</version></dependency>
+    <!-- POI 6.0.0 applies flips to unflipped shapes when drawing slides (Apache POI #1534). -->
+    <dependency><groupId>org.apache.poi</groupId><artifactId>poi-ooxml</artifactId><version>5.5.1</version></dependency>
+  </dependencies>
 </project>
