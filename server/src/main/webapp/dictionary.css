@@ -42,6 +42,11 @@ button:active { background: #182c40; }
 .download { border-top: 1px solid #d9d9d9; padding-top: 22px; }
 a { color: #234f79; text-underline-offset: 3px; }
 a:hover { color: #142f49; }
+.button-link { display: inline-block; margin: 0 10px 8px 0; padding: 8px 14px; border-radius: 3px; background: #304d6b; color: #fff; text-decoration: none; }
+.button-link:hover { background: #233b54; color: #fff; }
+.slide { margin: 22px 0; padding: 18px 20px; border: 1px solid #d9d9d9; border-radius: 4px; }
+.slide h2 { margin-bottom: 12px; }
+.slide p { white-space: pre-wrap; }
 @media (max-width: 480px) {
     body { padding: 28px 18px; }
     h1 { font-size: 23px; }

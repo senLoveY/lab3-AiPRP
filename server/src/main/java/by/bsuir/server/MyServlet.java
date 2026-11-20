@@ -80,8 +80,9 @@ public class MyServlet extends HttpServlet {
                     </section>
                     <section class="download" aria-labelledby="presentation-title">
                     <h2 id="presentation-title">Презентация</h2>
+                    <a class="button-link" href="PresentationPreviewServlet" target="_blank" rel="noopener">Открыть просмотр в браузере</a>
                     <a href="PresentationServlet">Скачать презентацию (.pptx)</a>
-                    <p class="hint">Для автоматического открытия используйте Java-клиент.</p>
+                    <p class="hint">В браузере отображается текст слайдов. Для открытия самого PPTX используйте Java-клиент.</p>
                     </section></main></body></html>
                     """);
         }
