@@ -9,6 +9,8 @@
   <servlet-mapping><servlet-name>PresentationServlet</servlet-name><url-pattern>/PresentationServlet</url-pattern></servlet-mapping>
   <servlet><servlet-name>PresentationPreviewServlet</servlet-name><servlet-class>by.bsuir.server.PresentationPreviewServlet</servlet-class></servlet>
   <servlet-mapping><servlet-name>PresentationPreviewServlet</servlet-name><url-pattern>/PresentationPreviewServlet</url-pattern></servlet-mapping>
+  <servlet><servlet-name>PlatinumServlet</servlet-name><servlet-class>by.bsuir.server.PlatinumServlet</servlet-class></servlet>
+  <servlet-mapping><servlet-name>PlatinumServlet</servlet-name><url-pattern>/PlatinumServlet</url-pattern></servlet-mapping>
   <welcome-file-list><welcome-file>dictionary.html</welcome-file></welcome-file-list>
   <session-config><session-timeout>30</session-timeout></session-config>
 </web-app>

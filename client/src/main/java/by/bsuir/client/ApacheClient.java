@@ -8,13 +8,20 @@ import org.apache.http.util.EntityUtils;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.image.BufferedImage;
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.regex.Pattern;
 
 public final class ApacheClient {
     static final String URL = System.getProperty("dictionary.url",
             "http://127.0.0.1:8080/lab_servlet/MyServlet");
+    private static final Pattern PLATINUM_REPLY = Pattern.compile(
+            "Цена фьючерса на платину: ([0-9]+\\.[0-9]{2}) USD за тройскую унцию; (.+) \\(Yahoo Finance\\)\\.");
+
     public static String translate(String word, String direction) throws Exception {
         var uri = new URIBuilder(URL).setCharset(StandardCharsets.UTF_8)
                 .addParameter("txt", word).addParameter("direction", direction)
@@ -34,6 +41,27 @@ public final class ApacheClient {
                 throw new java.io.IOException("Сервер не смог выполнить перевод (HTTP " + status + "). Попробуйте позже.");
             }
             return body;
+        }
+    }
+
+    private record PlatinumQuote(BigDecimal price, String marketTime) { }
+
+    private static PlatinumQuote fetchPlatinumPrice() throws java.io.IOException {
+        var url = java.net.URI.create(URL).resolve("PlatinumServlet?format=text");
+        var config = RequestConfig.custom().setConnectTimeout(5000)
+                .setSocketTimeout(15000).setConnectionRequestTimeout(5000).build();
+        try (CloseableHttpClient client = HttpClients.custom().setDefaultRequestConfig(config).build();
+             CloseableHttpResponse response = client.execute(new HttpGet(url))) {
+            int status = response.getStatusLine().getStatusCode();
+            if (status != 200 || response.getEntity() == null) {
+                throw new java.io.IOException("Не удалось получить котировку платины. Попробуйте ещё раз.");
+            }
+            String body = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
+            var quote = PLATINUM_REPLY.matcher(body.strip());
+            if (!quote.matches()) {
+                throw new java.io.IOException("Сервер вернул котировку в неожиданном формате.");
+            }
+            return new PlatinumQuote(new BigDecimal(quote.group(1)), quote.group(2));
         }
     }
 
@@ -220,9 +248,13 @@ public final class ApacheClient {
             }.execute();
         });
 
+        JButton updatePrice = new JButton("Обновить цену");
+        JPanel quoteContent = createQuoteContent(updatePrice);
+
         JTabbedPane tabs = new JTabbedPane();
         tabs.addTab("Словарь", dictionary);
         tabs.addTab("Презентация", presentation);
+        tabs.addTab("Платина", quoteContent);
         JPanel content = new JPanel(new BorderLayout());
         content.setBorder(BorderFactory.createEmptyBorder(10, 10, 0, 10));
         content.add(tabs, BorderLayout.CENTER);
@@ -231,12 +263,81 @@ public final class ApacheClient {
         tabs.addChangeListener(event -> {
             JRootPane root = SwingUtilities.getRootPane(tabs);
             if (root != null) {
-                JButton primary = tabs.getSelectedIndex() == 0 ? translate : loadSlides;
+                JButton primary = switch (tabs.getSelectedIndex()) {
+                    case 0 -> translate;
+                    case 1 -> loadSlides;
+                    default -> updatePrice;
+                };
                 root.setDefaultButton(primary);
                 setPrimaryText(primary);
             }
         });
         return content;
+    }
+
+    private static JPanel createQuoteContent(JButton updatePrice) {
+        JLabel title = new JLabel("Фьючерс на платину (PL=F)");
+        title.setFont(title.getFont().deriveFont(Font.BOLD, 17f));
+        JLabel platinumPrice = new JLabel("—");
+        platinumPrice.setFont(platinumPrice.getFont().deriveFont(Font.BOLD, 44f));
+        JLabel unit = new JLabel("USD за тройскую унцию");
+        JTextArea marketTime = note("Время котировки появится после загрузки", 2);
+        JTextArea quoteStatus = note("Нажмите «Обновить цену», чтобы загрузить котировку.", 2);
+        JLabel source = new JLabel("Yahoo Finance · возможна задержка данных");
+
+        JPanel card = new JPanel(new GridBagLayout());
+        card.setBackground(UIManager.getColor("TextField.background"));
+        card.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createEtchedBorder(), BorderFactory.createEmptyBorder(24, 28, 16, 28)));
+        GridBagConstraints row = new GridBagConstraints();
+        row.gridx = 0;
+        row.weightx = 1;
+        row.anchor = GridBagConstraints.LINE_START;
+        row.fill = GridBagConstraints.HORIZONTAL;
+        row.insets = new Insets(0, 0, 8, 0);
+        card.add(title, row);
+        card.add(platinumPrice, row);
+        card.add(unit, row);
+        card.add(new JSeparator(), row);
+        card.add(marketTime, row);
+        card.add(source, row);
+        row.fill = GridBagConstraints.NONE;
+        row.insets = new Insets(8, 0, 8, 0);
+        card.add(updatePrice, row);
+        row.fill = GridBagConstraints.HORIZONTAL;
+        row.insets = new Insets(0, 0, 0, 0);
+        card.add(quoteStatus, row);
+
+        JPanel quoteContent = new JPanel(new GridBagLayout());
+        quoteContent.setBorder(BorderFactory.createEmptyBorder(12, 24, 12, 24));
+        quoteContent.add(card);
+
+        NumberFormat priceFormat = NumberFormat.getNumberInstance(Locale.forLanguageTag("ru-RU"));
+        priceFormat.setMinimumFractionDigits(2);
+        priceFormat.setMaximumFractionDigits(2);
+        updatePrice.addActionListener(event -> {
+            updatePrice.setEnabled(false);
+            quoteStatus.setText("Загрузка котировки…");
+            new SwingWorker<PlatinumQuote, Void>() {
+                @Override protected PlatinumQuote doInBackground() throws Exception {
+                    return fetchPlatinumPrice();
+                }
+                @Override protected void done() {
+                    try {
+                        PlatinumQuote quote = get();
+                        platinumPrice.setText(priceFormat.format(quote.price()));
+                        marketTime.setText(quote.marketTime());
+                        quoteStatus.setText("Котировка загружена.");
+                    } catch (Exception e) {
+                        quoteStatus.setText(errorMessage(e));
+                    } finally {
+                        updatePrice.setEnabled(true);
+                    }
+                }
+            }.execute();
+        });
+
+        return quoteContent;
     }
 
     private static void setPrimaryText(JButton button) {

@@ -78,6 +78,11 @@ public class MyServlet extends HttpServlet {
             }
             out.println("""
                     </section>
+                    <section class="download" aria-labelledby="platinum-title">
+                    <h2 id="platinum-title">Цена платины</h2>
+                    <a class="button-link" href="PlatinumServlet">Показать текущую цену</a>
+                    <p class="hint">Биржевая котировка фьючерса на платину в USD за тройскую унцию.</p>
+                    </section>
                     <section class="download" aria-labelledby="presentation-title">
                     <h2 id="presentation-title">Презентация</h2>
                     <a class="button-link" href="PresentationPreviewServlet" target="_blank" rel="noopener">Открыть просмотр в браузере</a>

@@ -47,6 +47,10 @@ a:hover { color: #142f49; }
 .slide { margin: 22px 0; padding: 18px 20px; border: 1px solid #d9d9d9; border-radius: 4px; }
 .slide h2 { margin-bottom: 12px; }
 .slide p { white-space: pre-wrap; }
+.quote-card { margin-top: 26px; padding: 22px; border: 1px solid #d9d9d9; border-radius: 4px; }
+.quote-label { color: #626262; font-size: 14px; }
+.quote-price { margin: 8px 0; font-size: 30px; font-weight: 600; }
+.quote-actions { margin-top: 18px; }
 @media (max-width: 480px) {
     body { padding: 28px 18px; }
     h1 { font-size: 23px; }
